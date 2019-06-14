@@ -74,7 +74,6 @@ class ShardHandler(object):
     def load_data_from_shards(self):
         """Grab all the shards, pull all the data, and then concatenate it."""
         result = list()
-
         for db in self.mapping.keys():
             with open(f'data/{db}.txt', 'r') as f:
                 result.append(f.read())
@@ -98,7 +97,37 @@ class ShardHandler(object):
         """Loads the data from all shards, removes the extra 'database' file,
         and writes the new number of shards to disk.
         """
-        pass
+        # like add shard load all dataset; we grab all and hold and rewrite
+        self.mapping = self.load_map()
+        data = self.load_data_from_shards()
+        # why 2? Because we have to compensate for zero indexing
+        new_shard_num = str(int(max(list(self.mapping.keys()))) + 2)
+
+        spliced_data = self._generate_sharded_data(int(new_shard_num), data)
+
+        for num, d in enumerate(spliced_data):
+            self._write_shard(num, d)
+
+        self.write_map()
+
+        # shards = self.load_data_from_shards()
+        # for shard in shards:
+        #     print(shard)
+        # with open(self.mapfile, 'r') as m:
+        #     for db in m.keys():
+        #         m.pop(db)
+        #     return ''.join(db)
+        # result = list()
+        # for db in self.mapping.keys():
+        #     print(db)
+        #     result.pop()
+        # return ''.join(result)
+        # result = list()
+        # for db in self.mapping.keys():
+        #     with open(f'data/{db}.txt', 'r') as f:
+        #         result.pop()
+        # return ''.join(result)
+        # pass
 
     def add_replication(self):
         """Add a level of replication so that each shard has a backup. Label
@@ -115,6 +144,13 @@ class ShardHandler(object):
         to detect how many levels there are and appropriately add the next
         level.
         """
+        # self.mapping = self.load_map()
+        # added = self.add_shard()
+        # self.write_map()
+        
+        # data = self.load_data_from_shards()
+        # for file in data:
+        #     print(file)
         pass
 
     def remove_replication(self):
@@ -167,5 +203,7 @@ s.build_shards(5, load_data_from_file())
 print(s.mapping.keys())
 
 s.add_shard()
+
+s.remove_shard()
 
 print(s.mapping.keys())
