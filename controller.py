@@ -1,17 +1,21 @@
-import os, json
+import os
+import json
 
 filename = "chapter2.txt"
+
 
 def load_data_from_file(path=None):
     with open(path if path else filename, 'r') as f:
         data = f.read()
     return data
 
+
 class ShardHandler(object):
     """
     Take any text file and shard it into X number of files with
     Y number of replications.
     """
+
     def __init__(self):
         self.mapping = self.load_map()
 
@@ -26,6 +30,7 @@ class ShardHandler(object):
         """Load the 'database' mapping from file."""
         if not os.path.exists(self.mapfile):
             return dict()
+        # read the mapping.json and resturn as dict
         with open(self.mapfile, 'r') as m:
             return json.load(m)
 
@@ -51,6 +56,9 @@ class ShardHandler(object):
         with open(f"data/{num}.txt", 'w') as s:
             s.write(data)
 
+        # the char from before; 1 shard at a time
+        # map telsl wehre data is, but need to have indexes to find teh stuff
+        # this is horz
         self.mapping.update(
             {
                 str(num): {
@@ -62,74 +70,88 @@ class ShardHandler(object):
 
     def _generate_sharded_data(self, count, data):
         """Split the data into as many pieces as needed."""
+        # divmod = takes int and another arg and to get x num things, first arg reurne dis where we need to split stuff, and rem is ermainder if stuff left over; tells index num, not stuff with data
         splicenum, rem = divmod(len(data), count)
-
-        result = [data[splicenum * z:splicenum * (z + 1)] for z in range(count)]
+        # data is string of w/e; here's text
+        result = [
+            data[
+                splicenum * z:  # if z is 0, it's 0; takes text and puts into segments
+                splicenum * (z + 1)  # 25 * 0+1
+            ] for z in range(count)
+        ]
+        # result = 0-25; 25-50;...
+        # text blocks in thign
         # take care of any odd characters
+        # if no remainder, then all is good; else ...
         if rem > 0:
+            # result last += bigblob[countBackwardsToEndJustThoseCharAndThrowEverythingElse]
+            # -1:issecondtolast
             result[-1] += data[-rem:]
 
-        return result
+        return result  # list of data split along index
 
     def load_data_from_shards(self):
         """Grab all the shards, pull all the data, and then concatenate it."""
         result = list()
+        # looks at the keys inside the dict from load_maps
         for db in self.mapping.keys():
             with open(f'data/{db}.txt', 'r') as f:
+                # appends the files to the list
                 result.append(f.read())
-        return ''.join(result)
+        return ''.join(result)  # everything writern; string
 
     def add_shard(self):
         """Add a new shard to the existing pool and rebalance the data."""
         self.mapping = self.load_map()
         data = self.load_data_from_shards()
-        # why 2? Because we have to compensate for zero indexing
+        # figureout howmany you have and what to do next; map gets desynced, we lose data
+        # recast list of strings to int to sort
         keys = [int(z) for z in list(self.mapping.keys())]
         keys.sort()
+        # why 2? Because we have to compensate for zero indexing
+        # looks for highest val element, which will always be nine w/o making int; like aa comes before b
         new_shard_num = str(max(keys) + 2)
-
+        # all org data split how much we want; evenly divided final list
         spliced_data = self._generate_sharded_data(int(new_shard_num), data)
 
+        # en = looping stuff; s_d is elemetns; list of 4 num, prritns 4 things inside list; gives us loop num that we're on, which does count num of loop we're on; num loop and elemnt for loop; loop 0 gives el 1; extra piece of data in loop and go through each elemnt and says what itersation
+        # writes our files; file 0 is same as loop 0 and stores first el in arrya
         for num, d in enumerate(spliced_data):
             self._write_shard(num, d)
+            # end up with updated dic and stuff written to disk in data folder; split u; mappign is ready
 
-        self.write_map()
+        self.write_map()  # backup index
 
     def remove_shard(self):
         """Loads the data from all shards, removes the extra 'database' file,
         and writes the new number of shards to disk.
         """
+        # take in data, rebalance for fewer num, write that to disk, and end up with a little more data in shards
         # like add shard load all dataset; we grab all and hold and rewrite
+
+        # is the dic with
         self.mapping = self.load_map()
         data = self.load_data_from_shards()
-        # why 2? Because we have to compensate for zero indexing
-        new_shard_num = str(int(max(list(self.mapping.keys()))) + 2)
+
+        keys = [int(z) for z in list(self.mapping.keys())]
+        keys.sort()
+        new_shard_num = str(max(keys))
 
         spliced_data = self._generate_sharded_data(int(new_shard_num), data)
 
+        # shows what shard; for 0, string in
         for num, d in enumerate(spliced_data):
+            # based on mapping and pick that nu
             self._write_shard(num, d)
 
-        self.write_map()
+        # if new_shard_num == "0":
+        #     pass
+        # else:
+        os.remove(f'data/{new_shard_num}.txt')
+        self.mapping.pop(new_shard_num)
 
-        # shards = self.load_data_from_shards()
-        # for shard in shards:
-        #     print(shard)
-        # with open(self.mapfile, 'r') as m:
-        #     for db in m.keys():
-        #         m.pop(db)
-        #     return ''.join(db)
-        # result = list()
-        # for db in self.mapping.keys():
-        #     print(db)
-        #     result.pop()
-        # return ''.join(result)
-        # result = list()
-        # for db in self.mapping.keys():
-        #     with open(f'data/{db}.txt', 'r') as f:
-        #         result.pop()
-        # return ''.join(result)
-        # pass
+        self.write_map()
+        # if 1 left, stop
 
     def add_replication(self):
         """Add a level of replication so that each shard has a backup. Label
@@ -146,10 +168,14 @@ class ShardHandler(object):
         to detect how many levels there are and appropriately add the next
         level.
         """
+        # identify level and copy it appropriately
+        # write data to primaries, so check to see if prims good ans backwd; syncing; figure out early on since epxensize for time/$
+        # cold backup = must be rresotrred and stored to disk but not curr running; hot is curr running
+
         # self.mapping = self.load_map()
         # added = self.add_shard()
         # self.write_map()
-        
+
         # data = self.load_data_from_shards()
         # for file in data:
         #     print(file)
@@ -176,12 +202,15 @@ class ShardHandler(object):
         2.txt (shard 2, primary)
         etc...
         """
+        # removes highest level, like 1-3 is gone; exception if no dups left
         pass
 
     def sync_replication(self):
         """Verify that all replications are equal to their primaries and that
          any missing primaries are appropriately recreated from their
          replications."""
+        #  if primary/main isn't there, finds that a primary is gone and restore by copying a replication file
+        # balance data wehn add new shards and stuff; file structure should match metadata; num of rreps is good and elvel nm is good
         pass
 
     def get_shard_data(self, shardnum=None):
@@ -204,7 +233,7 @@ s.build_shards(5, load_data_from_file())
 
 print(s.mapping.keys())
 
-s.add_shard()
+# s.add_shard()
 
 s.remove_shard()
 
