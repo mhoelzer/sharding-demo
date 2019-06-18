@@ -144,11 +144,11 @@ class ShardHandler(object):
             # based on mapping and pick that nu
             self._write_shard(num, d)
 
-        # if new_shard_num == "0":
-        #     pass
-        # else:
-        os.remove(f'data/{new_shard_num}.txt')
-        self.mapping.pop(new_shard_num)
+        try:
+            os.remove(f'data/{new_shard_num}.txt')
+            self.mapping.pop(new_shard_num)
+        except ZeroDivisionError:
+            pass
 
         self.write_map()
         # if 1 left, stop
