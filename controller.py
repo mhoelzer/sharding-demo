@@ -233,8 +233,8 @@ s.build_shards(5, load_data_from_file())
 
 print(s.mapping.keys())
 
-# s.add_shard()
+s.add_shard()
 
-s.remove_shard()
+# s.remove_shard()
 
 print(s.mapping.keys())
