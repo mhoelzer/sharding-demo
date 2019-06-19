@@ -1,5 +1,6 @@
 import os
 import json
+from shutil import copyfile
 
 filename = "chapter2.txt"
 
@@ -153,6 +154,24 @@ class ShardHandler(object):
         self.write_map()
         # if 1 left, stop
 
+    def existing_shard_level(self):
+        # secondary func for add and remove to show existing level; cant assume that there is or not rep; can call how many times; know highest num b/c that's what to remove and use btoh here and rem; fault tolerante (sync rrep verifies stuff is all there; poll all for highest)
+        # find first file and go up when doing loop below; copmare old 
+        files = os.listdir("data")
+        # zero_file = str(files).startswith("0")
+        # first_file = list(filter(zero_file, files))
+        # looking at lowest level file that'll always be there to check with hlr to see rep levels on that file
+        lowest_level_file = list(filter(lambda file: file.startswith("0"), files))
+        highest_level_reps = [int(file.split("-")[1].replace(".txt", "")) for file in lowest_level_file if "-" in file]
+        # for file in lowest_level_file:
+        #     if "-" in file:
+        #         highest_level_reps = int(file.split("-")[1][:-4])
+        #         return list(highest_level_reps)
+        if highest_level_reps:
+            return max(highest_level_reps)
+        else:
+            return 0
+    
     def add_replication(self):
         """Add a level of replication so that each shard has a backup. Label
         them with the following format:
@@ -168,18 +187,17 @@ class ShardHandler(object):
         to detect how many levels there are and appropriately add the next
         level.
         """
+        # get the individual shards; for each,  reat a copy with a title that starts with - and then a num
         # identify level and copy it appropriately
         # write data to primaries, so check to see if prims good ans backwd; syncing; figure out early on since epxensize for time/$
         # cold backup = must be rresotrred and stored to disk but not curr running; hot is curr running
-
-        # self.mapping = self.load_map()
-        # added = self.add_shard()
-        # self.write_map()
-
-        # data = self.load_data_from_shards()
-        # for file in data:
-        #     print(file)
-        pass
+        
+        copy_level = self.existing_shard_level()
+        self.mapping = self.load_map()
+        for key in self.mapping.keys():
+            original = f'data/{key}.txt'
+            replication = f'data/{key}-{str(copy_level + 1)}.txt'
+            copyfile(original, replication)
 
     def remove_replication(self):
         """Remove the highest replication level.
@@ -233,8 +251,8 @@ s.build_shards(5, load_data_from_file())
 
 print(s.mapping.keys())
 
-s.add_shard()
-
+# s.add_shard()
 # s.remove_shard()
+s.add_replication()
 
 print(s.mapping.keys())
