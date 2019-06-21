@@ -129,8 +129,12 @@ class ShardHandler(object):
         """
         # take in data, rebalance for fewer num, write that to disk, and end up with a little more data in shards
         # like add shard load all dataset; we grab all and hold and rewrite
-
         # is the dic with
+
+        # COMMENT OUT BUILD_SHARDS CALL TO NOT GET EVERYTHING ADDED BACK
+        if self.mapping == {}:
+            raise Exception("there are no shards to remove")
+
         self.mapping = self.load_map()
         data = self.load_data_from_shards()
 
@@ -138,40 +142,38 @@ class ShardHandler(object):
         keys.sort()
         new_shard_num = str(max(keys))
 
-        spliced_data = self._generate_sharded_data(int(new_shard_num), data)
+        if new_shard_num == "0":
+            self.mapping = {}
+            self.write_map()
+            os.remove(f'data/0.txt')
+            return self.mapping
 
+        spliced_data = self._generate_sharded_data(int(new_shard_num), data)
         # shows what shard; for 0, string in
         for num, d in enumerate(spliced_data):
             # based on mapping and pick that nu
             self._write_shard(num, d)
 
-        try:
-            os.remove(f'data/{new_shard_num}.txt')
-            self.mapping.pop(new_shard_num)
-        except ZeroDivisionError:
-            pass
-
+        os.remove(f'data/{new_shard_num}.txt')
+        self.mapping.pop(new_shard_num)
         self.write_map()
         # if 1 left, stop
 
     def existing_shard_level(self):
         # secondary func for add and remove to show existing level; cant assume that there is or not rep; can call how many times; know highest num b/c that's what to remove and use btoh here and rem; fault tolerante (sync rrep verifies stuff is all there; poll all for highest)
-        # find first file and go up when doing loop below; copmare old 
+        # find first file and go up when doing loop below; copmare old
+
         files = os.listdir("data")
-        # zero_file = str(files).startswith("0")
-        # first_file = list(filter(zero_file, files))
         # looking at lowest level file that'll always be there to check with hlr to see rep levels on that file
-        lowest_level_file = list(filter(lambda file: file.startswith("0"), files))
-        highest_level_reps = [int(file.split("-")[1].replace(".txt", "")) for file in lowest_level_file if "-" in file]
-        # for file in lowest_level_file:
-        #     if "-" in file:
-        #         highest_level_reps = int(file.split("-")[1][:-4])
-        #         return list(highest_level_reps)
+        lowest_level_file = list(
+            filter(lambda file: file.startswith("0"), files))
+        highest_level_reps = [int(file.split("-")[1].replace(".txt", ""))
+                              for file in lowest_level_file if "-" in file]
         if highest_level_reps:
             return max(highest_level_reps)
         else:
             return 0
-    
+
     def add_replication(self):
         """Add a level of replication so that each shard has a backup. Label
         them with the following format:
@@ -191,12 +193,12 @@ class ShardHandler(object):
         # identify level and copy it appropriately
         # write data to primaries, so check to see if prims good ans backwd; syncing; figure out early on since epxensize for time/$
         # cold backup = must be rresotrred and stored to disk but not curr running; hot is curr running
-        
-        copy_level = self.existing_shard_level()
+
+        rep_level = self.existing_shard_level()
         self.mapping = self.load_map()
         for key in self.mapping.keys():
             original = f'data/{key}.txt'
-            replication = f'data/{key}-{str(copy_level + 1)}.txt'
+            replication = f'data/{key}-{str(rep_level + 1)}.txt'
             copyfile(original, replication)
 
     def remove_replication(self):
@@ -221,7 +223,15 @@ class ShardHandler(object):
         etc...
         """
         # removes highest level, like 1-3 is gone; exception if no dups left
-        pass
+        rep_level = self.existing_shard_level()
+        self.mapping = self.load_map()
+        if rep_level != 0:
+            for key in self.mapping.keys():
+                replication = f'data/{key}-{str(rep_level)}.txt'
+                os.remove(replication)
+        else:
+            raise Exception(
+                "You have to have at least one replication to remove, dummy")
 
     def sync_replication(self):
         """Verify that all replications are equal to their primaries and that
@@ -229,7 +239,28 @@ class ShardHandler(object):
          replications."""
         #  if primary/main isn't there, finds that a primary is gone and restore by copying a replication file
         # balance data wehn add new shards and stuff; file structure should match metadata; num of rreps is good and elvel nm is good
-        pass
+        # copy states of prijary files to reps; restore missing primary ifles from reps
+        # Verifies num of reps and replaces missing primary data
+        # So need primary and rep files
+        # If just do add shard it puts reps out of sync. This sees how many primary files and how many reps
+        # If delete primary it gets created based on reps but first checks to see if stuff is up to date
+        rep_level = self.existing_shard_level()
+        files = os.listdir("data")
+        self.mapping = self.load_map()
+        for key in self.mapping.keys():
+            if not os.path.exists(f"data/{key}.txt"):
+                # # check mapping to have
+                # primary = file.replace(".txt", "")
+                # if primary not in self.mapping.keys():
+                #     # self.add_shard()
+                replication = f'data/{key}-{str(rep_level)}.txt'
+                new_primary = f'data/{key}.txt'
+                copyfile(replication, new_primary)
+
+        for key in self.mapping.keys():
+            
+            # print(key)
+        # pass
 
     def get_shard_data(self, shardnum=None):
         """Return information about a shard from the mapfile."""
@@ -253,6 +284,8 @@ print(s.mapping.keys())
 
 # s.add_shard()
 # s.remove_shard()
-s.add_replication()
+# s.add_replication()
+# s.remove_replication()
+s.sync_replication()
 
 print(s.mapping.keys())
