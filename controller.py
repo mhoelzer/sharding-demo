@@ -249,18 +249,13 @@ class ShardHandler(object):
         self.mapping = self.load_map()
         for key in self.mapping.keys():
             if not os.path.exists(f"data/{key}.txt"):
-                # # check mapping to have
-                # primary = file.replace(".txt", "")
-                # if primary not in self.mapping.keys():
-                #     # self.add_shard()
                 replication = f'data/{key}-{str(rep_level)}.txt'
                 new_primary = f'data/{key}.txt'
                 copyfile(replication, new_primary)
-
         for key in self.mapping.keys():
-            
-            # print(key)
-        # pass
+            original = f'data/{key}.txt'
+            replication = f'data/{key}-{str(rep_level)}.txt'
+            copyfile(original, replication)
 
     def get_shard_data(self, shardnum=None):
         """Return information about a shard from the mapfile."""
